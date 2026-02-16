@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz Escolar</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #0b1220; color: #e7eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .card { background: #111a2f; border: 1px solid #223055; border-radius: 14px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { margin: 0 0 10px; font-size: 22px; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    .muted { color: #a8b6da; font-size: 13px; }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 1; }
+    label { display:block; font-size: 12px; color:#a8b6da; margin-bottom: 6px; }
+    select, input, textarea, button {
+      width: 100%; box-sizing: border-box;
+      border-radius: 12px; border: 1px solid #2a3a66;
+      background: #0e1730; color: #e7eefc;
+      padding: 12px 12px; outline: none;
+    }
+    textarea { min-height: 140px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    button { cursor: pointer; border-color: #3654a7; background: #17306a; font-weight: 650; }
+    button.secondary { border-color: #2a3a66; background: #0e1730; }
+    button.danger { border-color: #8a2c3a; background: #4b1420; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+    .pill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid #2a3a66; background:#0e1730; font-size:12px; color:#a8b6da; }
+    .options { display: grid; gap: 10px; margin-top: 12px; }
+    .opt { text-align:left; background:#0e1730; border:1px solid #2a3a66; }
+    .opt.correct { border-color:#2e7d32; background:#0f2a16; }
+    .opt.wrong { border-color:#c62828; background:#2a0f12; }
+    .bar { height: 10px; background:#0e1730; border:1px solid #2a3a66; border-radius:999px; overflow:hidden; }
+    .bar > div { height:100%; width:0%; background:#3654a7; }
+    .spacer { height: 12px; }
+    .hr { height:1px; background:#223055; margin: 14px 0; }
+    .small { font-size: 12px; }
+    .right { text-align:right; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .hidden { display:none; }
+    .kbd { border:1px solid #2a3a66; background:#0e1730; border-radius:8px; padding:2px 6px; font-size:12px; color:#a8b6da; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- HOME -->
+    <div class="card" id="screenHome">
+      <h1>Quiz Escolar 🧠📚</h1>
+      <div class="muted">Historia · Geografía · Biología — aleatorio, repaso de falladas y estadísticas (se guardan en este dispositivo).</div>
+
+      <div class="spacer"></div>
+
+      <div class="grid2">
+        <div>
+          <label>Materia</label>
+          <select id="subject">
+            <option value="Todas">Todas</option>
+            <option value="Historia">Historia</option>
+            <option value="Geografía">Geografía</option>
+            <option value="Biología">Biología</option>
+            <option value="Capitales">Capitales</option>
+          </select>
+        </div>
+        <div>
+          <label>Número de preguntas</label>
+          <input id="count" type="number" min="1" max="200" value="10" />
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="grid2">
+        <button id="btnStart">Iniciar quiz</button>
+        <button class="secondary" id="btnReview">Repasar falladas</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="pill" id="pillBank">Banco: <span class="mono" id="bankSize">0</span> preguntas</div>
+        <div class="pill">Aciertos totales: <span class="mono" id="statCorrect">0</span></div>
+        <div class="pill">Intentos totales: <span class="mono" id="statAttempts">0</span></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <h2>Importar tus datos (TSV)</h2>
+      <div class="muted small">
+        Pega un TSV (tabulado) desde Sheets/Excel con columnas:
+        <span class="mono">Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación(opcional)</span>
+      </div>
+
+      <div class="spacer"></div>
+      <textarea id="tsv" spellcheck="false"></textarea>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnImport">Importar / actualizar banco</button>
+        <button class="secondary" id="btnPasteSample">Pegar banco de ejemplo</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button class="secondary" id="btnExport">Exportar banco (TSV)</button>
+        <button class="danger" id="btnResetAll">Borrar banco y estadísticas</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="muted small">
+        Tip: durante el quiz usa <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> para responder.
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div class="card hidden" id="screenQuiz">
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <div class="pill" id="pillMode">Modo: <span class="mono" id="modeLabel">Normal</span></div>
+        </div>
+        <div class="right">
+          <button class="secondary" id="btnQuit">Salir</button>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="bar"><div id="progress"></div></div>
+      <div class="spacer"></div>
+
+      <div class="row">
+        <div class="pill">Pregunta <span class="mono" id="qIndex">1</span>/<span class="mono" id="qTotal">10</span></div>
+        <div class="pill">Materia: <span class="mono" id="qSubject">—</span></div>
+        <div class="pill">Racha: <span class="mono" id="streak">0</span></div>
+      </div>
+
+      <div class="spacer"></div>
+      <h2 id="qText">—</h2>
+      <div class="options" id="options"></div>
+
+      <div class="spacer"></div>
+      <div class="muted" id="explain" style="min-height: 22px;"></div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnNext" disabled>Siguiente</button>
+        <button class="secondary" id="btnSkip">Saltar</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="card hidden" id="screenResults">
+      <h1>Resultado</h1>
+      <div class="row">
+        <div class="pill">Puntaje: <span class="mono" id="scoreLabel">0/0</span></div>
+        <div class="pill">Tiempo: <span class="mono" id="timeLabel">0s</span></div>
+        <div class="pill">Falladas: <span class="mono" id="wrongCount">0</span></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div id="wrongList"></div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnRetryWrong">Reintentar falladas</button>
+        <button class="secondary" id="btnHome">Volver al inicio</button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/** ===== Storage keys ===== */
+const STORAGE = {
+  bank: "quiz_bank_v2",
+  stats: "quiz_stats_v2",
+  wrong: "quiz_wrong_v2"
+};
+
+/** ===== Utils ===== */
+function cyrb53(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nowMs() { return Date.now(); }
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch { return fallback; }
+}
+function saveJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+/** ===== Default bank (historia, geografía, biología y capitales) ===== */
+function defaultBank() {
+  const items = [
+    // HISTORIA
+    q("Historia","¿Cómo se conoce al siglo XVIII por el auge de la razón y el pensamiento crítico?","Siglo de las Luces o Ilustración","Edad Media","Renacimiento","Edad de los Descubrimientos","A","En el siglo XVIII se valoró la razón, la ciencia y el pensamiento crítico."),
+    q("Historia","Según la Ilustración, ¿qué se valoró por encima de la autoridad de reyes o la religión?","La razón y la ciencia","La tradición","La magia","El destino","A","La Ilustración priorizó razón, ciencia y pensamiento crítico."),
+    q("Historia","¿Qué evento de 1789 se menciona como revolución política clave del siglo XVIII?","Revolución Francesa","Revolución Rusa","Independencia de India","Guerra Fría","A","La Revolución Francesa (1789) fue un movimiento contra el poder absoluto del rey."),
+    q("Historia","¿Quién escribió la 'Declaración de los Derechos de la Mujer y de la Ciudadana'?","Olympe de Gouges","Mary Wollstonecraft","Simone de Beauvoir","Marie Curie","A","Defendió la igualdad entre hombres y mujeres."),
+    // GEOGRAFÍA
+    q("Geografía","El crecimiento poblacional varía según…","nacimientos, muertes y migración","solo migración","solo nacimientos","solo muertes","A","Puede ser rápido, lento o negativo."),
+    q("Geografía","Un crecimiento rápido suele provocar…","escasez de vivienda, empleo y agua potable","más parques por persona","menos tráfico","menos demanda de servicios","A","Se asocia a muchos nacimientos y servicios limitados."),
+    // BIOLOGÍA
+    q("Biología","El tétanos es causado por…","una bacteria","un virus","un hongo","un parásito","A","Clostridium tetani es una bacteria."),
+    q("Biología","Las bacterias se reproducen principalmente por…","división (fisión) binaria","fotosíntesis","esporas de plantas","gemación de hongos","A","Se multiplican dividiéndose en dos."),
+    // CAPITALES (algunos ejemplos de 32 estados + 10 países)
+    q("Capitales","¿Capital de México?","Ciudad de México","Puebla","Monterrey","Guadalajara","A","CDMX es la capital."),
+    q("Capitales","¿Capital de Argentina?","Buenos Aires","Córdoba","Rosario","Mendoza","A","Buenos Aires es la capital."),
+    q("Capitales","¿Capital del estado de Jalisco?","Guadalajara","Monterrey","Toluca","Aguascalientes","A","Guadalajara es la capital de Jalisco."),
+    q("Capitales","¿Capital del estado de Yucatán?","Mérida","Cancún","Tijuana","Veracruz","A","Mérida es la capital de Yucatán."),
+  ];
+  return items;
+}
+
+function q(subject, question, A,B,C,D, correctLetter, explanation="") {
+  const correctIndex = ({A:0,B:1,C:2,D:3})[String(correctLetter||"A").toUpperCase()] ?? 0;
+  const id = cyrb53(subject + "||" + question + "||" + [A,B,C,D].join("||"));
+  return { id, subject, question, choices: [A,B,C,D], correctIndex, explanation };
+}
+
+/** ===== App state ===== */
+let bank = [];
+let stats = {};
+let wrongSet = {};
+let session = null;
+
+/** ===== DOM ===== */
+const $ = (id) => document.getElementById(id);
+
+const screenHome = $("screenHome");
+const screenQuiz = $("screenQuiz");
+const screenResults = $("screenResults");
+
+const subjectSel = $("subject");
+const countInp = $("count");
+
+const bankSizeEl = $("bankSize");
+const statCorrectEl = $("statCorrect");
+const statAttemptsEl = $("statAttempts");
+
+const tsvArea = $("tsv");
+
+const btnStart = $("btnStart");
+const btnReview = $("btnReview");
+const btnImport = $("btnImport");
+const btnPasteSample = $("btnPasteSample");
+const btnExport = $("btnExport");
+const btnResetAll = $("btnResetAll");
+
+const modeLabel = $("modeLabel");
+
+const btnQuit = $("btnQuit");
+const progressEl = $("progress");
+const qIndexEl = $("qIndex");
+const qTotalEl = $("qTotal");
+const qSubjectEl = $("qSubject");
+const streakEl = $("streak");
+const qTextEl = $("qText");
+const optionsEl = $("options");
+const explainEl = $("explain");
+const btnNext = $("btnNext");
+const btnSkip = $("btnSkip");
+
+const scoreLabel = $("scoreLabel");
+const timeLabel = $("timeLabel");
+const wrongCountEl = $("wrongCount");
+const wrongList = $("wrongList");
+const btnRetryWrong = $("btnRetryWrong");
+const btnHome = $("btnHome");
+
+/** ===== Load / init ===== */
+function init() {
+  bank = loadJSON(STORAGE.bank, null);
+  if (!Array.isArray(bank) || bank.length === 0) {
+    bank = defaultBank();
+    saveJSON(STORAGE.bank, bank);
+  }
+  stats = loadJSON(STORAGE.stats, {});
+  wrongSet = loadJSON(STORAGE.wrong, {});
+  refreshHomeUI();
+  wireEvents();
+}
+
+function refreshHomeUI() {
+  bankSizeEl.textContent = bank.length;
+  let attempts = 0, correct = 0;
+  for (const id in stats) {
+    attempts += (stats[id]?.attempts || 0);
+    correct += (stats[id]?.correct || 0);
+  }
+  statAttemptsEl.textContent = attempts;
+  statCorrectEl.textContent = correct;
+  const wrongCountLocal = Object.keys(wrongSet).length;
+  btnReview.disabled = wrongCountLocal === 0;
+  countInp.max = String(Math.max(1, bank.length));
+  countInp.value = String(clamp(parseInt(countInp.value||"10",10), 1, Math.max(1, bank.length)));
+}
+
+/** ===== Screen helpers ===== */
+function show(screen) {
+  [screenHome, screenQuiz, screenResults].forEach(s => s.classList.add("hidden"));
+  screen.classList.remove("hidden");
+}
+
+/** ===== Quiz flow ===== */
+function startQuiz({mode}) {
+  const subject = subjectSel.value;
+  const n = clamp(parseInt(countInp.value||"10",10), 1, bank.length);
+  let pool = bank.slice();
+  if (subject !== "Todas") pool = pool.filter(x => x.subject === subject);
+  if (mode === "reviewWrong") {
+    const wrongIds = new Set(Object.keys(wrongSet));
+    pool = pool.filter(x => wrongIds.has(x.id));
+  }
+  if (pool.length === 0) {
+    alert("No hay preguntas para ese filtro. Importa más preguntas o cambia la materia.");
+    return;
+  }
+  shuffle(pool);
+  const pick = pool.slice(0, Math.min(n, pool.length));
+  session = {
+    mode,
+    questions: pick,
+    index: 0,
+    correct: 0,
+    wrong: [],
+    streak: 0,
+    startedAt: nowMs(),
+    answered: false
+  };
+  modeLabel.textContent = (mode === "reviewWrong") ? "Repaso falladas" : "Normal";
+  show(screenQuiz);
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const total = session.questions.length;
+  const idx = session.index;
+  const item = session.questions[idx];
+  session.answered = false;
+  btnNext.disabled = true;
+  explainEl.textContent = "";
+  qIndexEl.textContent = String(idx + 1);
+  qTotalEl.textContent = String(total);
+  qSubjectEl.textContent = item.subject;
+  streakEl.textContent = String(session.streak);
+  qTextEl.textContent = item.question;
+  const pct = Math.round(((idx) / total) * 100);
+  progressEl.style.width = pct + "%";
+  optionsEl.innerHTML = "";
+  item.choices.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.textContent = `${["A","B","C","D"][i]}) ${text}`;
+    b.onclick = () => choose(i);
+    optionsEl.appendChild(b);
+  });
+}
+
+function choose(choiceIndex) {
+  if (session.answered) return;
+  session.answered = true;
+  const item = session.questions[session.index];
+  const correct = item.correctIndex;
+  const s = stats[item.id] || { attempts: 0, correct: 0 };
+  s.attempts += 1;
+  const buttons = Array.from(optionsEl.querySelectorAll("button"));
+  buttons.forEach((b, i) => {
+    b.disabled = true;
+    if (i === correct) b.classList.add("correct");
+  });
+  if (choiceIndex === correct) {
+    s.correct += 1;
+    session.correct += 1;
+    session.streak += 1;
+    if (wrongSet[item.id]) {
+      delete wrongSet[item.id];
+    }
+    buttons[choiceIndex].classList.add("correct");
+    explainEl.textContent = item.explanation ? `✅ ${item.explanation}` : "✅ ¡Bien!";
+  } else {
+    session.streak = 0;
+    session.wrong.push(item);
+    wrongSet[item.id] = true;
+    buttons[choiceIndex].classList.add("wrong");
+    const correctLetter = ["A","B","C","D"][correct];
+    const extra = item.explanation ? ` ${item.explanation}` : "";
+    explainEl.textContent = `❌ Era ${correctLetter}).${extra}`;
+  }
+  stats[item.id] = s;
+  saveJSON(STORAGE.stats, stats);
+  saveJSON(STORAGE.wrong, wrongSet);
+  btnNext.disabled = false;
+  refreshHomeUI();
+}
+
+function next() {
+  if (!session) return;
+  if (session.index < session.questions.length - 1) {
+    session.index += 1;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function skip() {
+  if (!session) return;
+  if (session.index < session.questions.length - 1) {
+    session.index += 1;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function finishQuiz() {
+  const total = session.questions.length;
+  const elapsedSec = Math.round((nowMs() - session.startedAt) / 1000);
+  scoreLabel.textContent = `${session.correct}/${total}`;
+  timeLabel.textContent = `${elapsedSec}s`;
+  wrongCountEl.textContent = String(session.wrong.length);
+  wrongList.innerHTML = "";
+  if (session.wrong.length === 0) {
+    wrongList.innerHTML = `<div class="muted">Perfecto. Cero fallas. Tu hijo ya se ganó una paleta imaginaria. 🍭</div>`;
+  } else {
+    const div = document.createElement("div");
+    div.innerHTML = `<div class="muted small">Falladas (para reintentar):</div>`;
+    session.wrong.forEach((it, i) => {
+      const p = document.createElement("div");
+      p.style.marginTop = "10px";
+      p.innerHTML = `<div><b>${i+1}.</b> ${it.question}</div>
+                     <div class="muted small">Correcta: <span class="mono">${["A","B","C","D"][it.correctIndex]}</span> · ${it.explanation || ""}</div>`;
+      div.appendChild(p);
+    });
+    wrongList.appendChild(div);
+  }
+  btnRetryWrong.disabled = session.wrong.length === 0;
+  show(screenResults);
+}
+
+/** ===== TSV import/export ===== */
+function parseTSV(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const out = [];
+  for (const line of lines) {
+    if (line.toLowerCase().startsWith("materia\tpregunta\t")) continue;
+    const cols = line.split("\t");
+    if (cols.length < 7) continue;
+    const subject = cols[0].trim();
+    const question = cols[1].trim();
+    const A = (cols[2] ?? "").trim();
+    const B = (cols[3] ?? "").trim();
+    const C = (cols[4] ?? "").trim();
+    const D = (cols[5] ?? "").trim();
+    const corr = (cols[6] ?? "A").trim().toUpperCase();
+    const explanation = (cols[7] ?? "").trim();
+    if (!subject || !question || !A || !B || !C || !D) continue;
+    out.push(q(subject, question, A,B,C,D, corr, explanation));
+  }
+  return out;
+}
+
+function importTSV() {
+  const text = tsvArea.value || "";
+  const items = parseTSV(text);
+  if (items.length === 0) {
+    alert("No detecté preguntas válidas. Revisa que sea TSV con tabs y 4 opciones A-D.");
+    return;
+  }
+  const map = new Map(bank.map(it => [it.id, it]));
+  let added = 0, updated = 0;
+  for (const it of items) {
+    if (map.has(it.id)) { updated++; }
+    else { added++; }
+    map.set(it.id, it);
+  }
+  bank = Array.from(map.values());
+  saveJSON(STORAGE.bank, bank);
+  refreshHomeUI();
+  alert(`Listo: ${added} agregadas, ${updated} actualizadas. Total banco: ${bank.length}.`);
+}
+
+function exportTSV() {
+  const header = "Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación";
+  const rows = bank.map(it => {
+    const corr = ["A","B","C","D"][it.correctIndex] || "A";
+    return [it.subject, it.question, it.choices[0], it.choices[1], it.choices[2], it.choices[3], corr, it.explanation || ""].join("\t");
+  });
+  const text = [header, ...rows].join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    alert("TSV copiado al portapapeles ✅");
+  }).catch(() => {
+    tsvArea.value = text;
+    alert("No pude copiar automático. Te dejé el TSV en la caja para que lo copies manual.");
+  });
+}
+
+function resetAll() {
+  if (!confirm("¿Seguro? Esto borra banco y estadísticas en ESTE dispositivo.")) return;
+  localStorage.removeItem(STORAGE.bank);
+  localStorage.removeItem(STORAGE.stats);
+  localStorage.removeItem(STORAGE.wrong);
+  bank = defaultBank();
+  stats = {};
+  wrongSet = {};
+  saveJSON(STORAGE.bank, bank);
+  refreshHomeUI();
+  alert("Listo. Se reinició todo.");
+}
+
+/** ===== Events ===== */
+function wireEvents() {
+  btnStart.onclick = () => startQuiz({mode:"normal"});
+  btnReview.onclick = () => startQuiz({mode:"reviewWrong"});
+  btnImport.onclick = importTSV;
+  btnExport.onclick = exportTSV;
+  btnResetAll.onclick = resetAll;
+  btnPasteSample.onclick = () => {
+    tsvArea.value = sampleTSV();
+    tsvArea.focus();
+  };
+  btnQuit.onclick = () => { session = null; show(screenHome); refreshHomeUI(); };
+  btnNext.onclick = next;
+  btnSkip.onclick = skip;
+  btnHome.onclick = () => { session = null; show(screenHome); refreshHomeUI(); };
+  btnRetryWrong.onclick = () => {
+    show(screenHome);
+    subjectSel.value = "Todas";
+    countInp.value = String(Math.max(1, (session?.wrong?.length || 1)));
+    startQuiz({mode:"reviewWrong"});
+  };
+  document.addEventListener("keydown", (e) => {
+    if (screenQuiz.classList.contains("hidden")) return;
+    const k = e.key;
+    if (k === "1") choose(0);
+    if (k === "2") choose(1);
+    if (k === "3") choose(2);
+    if (k === "4") choose(3);
+    if (k === "Enter" && !btnNext.disabled) next();
+  });
+}
+
+/** ===== Sample TSV (ejemplo) ===== */
+function sampleTSV() {
+  return [
+    "Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación",
+    "Historia\t¿En qué año inició la Revolución Mexicana?\t1910\t1810\t1821\t1857\tA\t", 
+    "Geografía\t¿Capital de Francia?\tParís\tLondres\tMadrid\tBerlín\tA\t", 
+    "Biología\t¿Qué orgánulo es la 'central energética' de la célula?\tMitocondria\tRetículo endoplásmico\tRibosoma\tLisosoma\tA\t"
+  ].join("\n");
+}
+
+init();
+</script>
+
+</body>
+</html>
