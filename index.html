@@ -109,6 +109,7 @@
         <div class="pill">Pregunta <span class="mono" id="qIndex">1</span>/<span class="mono" id="qTotal">10</span></div>
         <div class="pill">Materia: <span class="mono" id="qSubject">—</span></div>
         <div class="pill">Racha: <span class="mono" id="streak">0</span></div>
+        <div class="pill">Calificación: <span class="mono" id="liveGrade">—</span></div>
       </div>
 
       <div class="spacer"></div>
@@ -132,6 +133,7 @@
         <div class="pill">Puntaje: <span class="mono" id="scoreLabel">0/0</span></div>
         <div class="pill">Tiempo: <span class="mono" id="timeLabel">0s</span></div>
         <div class="pill">Falladas: <span class="mono" id="wrongCount">0</span></div>
+        <div class="pill">Calificación final: <span class="mono" id="finalGrade">—</span></div>
       </div>
 
       <div class="hr"></div>
@@ -417,6 +419,7 @@ const qIndexEl = $("qIndex");
 const qTotalEl = $("qTotal");
 const qSubjectEl = $("qSubject");
 const streakEl = $("streak");
+const liveGradeEl = $("liveGrade");
 const qTextEl = $("qText");
 const optionsEl = $("options");
 const explainEl = $("explain");
@@ -426,9 +429,17 @@ const btnSkip = $("btnSkip");
 const scoreLabel = $("scoreLabel");
 const timeLabel = $("timeLabel");
 const wrongCountEl = $("wrongCount");
+const finalGradeEl = $("finalGrade");
 const wrongList = $("wrongList");
 const btnRetryWrong = $("btnRetryWrong");
 const btnHome = $("btnHome");
+
+function calcGradeLabel(correct, answered) {
+  if (!answered) return "—";
+  const accuracy = (correct / answered) * 100;
+  const gradeOver10 = (accuracy / 10).toFixed(1);
+  return `${gradeOver10}/10 (${Math.round(accuracy)}% · ${correct}/${answered})`;
+}
 
 /** ===== Load / init ===== */
 function init() {
@@ -484,7 +495,8 @@ function startQuiz({mode}) {
     wrong: [],
     streak: 0,
     startedAt: nowMs(),
-    answered: false
+    answered: false,
+    answeredCount: 0
   };
   modeLabel.textContent = (mode === "reviewWrong") ? "Repaso falladas" : "Normal";
   show(screenQuiz);
@@ -502,6 +514,7 @@ function renderQuestion() {
   qTotalEl.textContent = String(total);
   qSubjectEl.textContent = item.subject;
   streakEl.textContent = String(session.streak);
+  liveGradeEl.textContent = calcGradeLabel(session.correct, session.answeredCount);
   qTextEl.textContent = item.question;
   const pct = Math.round(((idx) / total) * 100);
   progressEl.style.width = pct + "%";
@@ -518,6 +531,7 @@ function renderQuestion() {
 function choose(choiceIndex) {
   if (session.answered) return;
   session.answered = true;
+  session.answeredCount += 1;
   const item = session.questions[session.index];
   const correct = item.correctIndex;
   const s = stats[item.id] || { attempts: 0, correct: 0 };
@@ -548,6 +562,7 @@ function choose(choiceIndex) {
   stats[item.id] = s;
   saveJSON(STORAGE.stats, stats);
   saveJSON(STORAGE.wrong, wrongSet);
+  liveGradeEl.textContent = calcGradeLabel(session.correct, session.answeredCount);
   btnNext.disabled = false;
   refreshHomeUI();
 }
@@ -576,6 +591,7 @@ function finishQuiz() {
   const total = session.questions.length;
   const elapsedSec = Math.round((nowMs() - session.startedAt) / 1000);
   scoreLabel.textContent = `${session.correct}/${total}`;
+  finalGradeEl.textContent = calcGradeLabel(session.correct, session.answeredCount);
   timeLabel.textContent = `${elapsedSec}s`;
   wrongCountEl.textContent = String(session.wrong.length);
   wrongList.innerHTML = "";
