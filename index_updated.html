@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz Escolar</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #0b1220; color: #e7eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .card { background: #111a2f; border: 1px solid #223055; border-radius: 14px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    h1 { margin: 0 0 10px; font-size: 22px; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    .muted { color: #a8b6da; font-size: 13px; }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 1; }
+    label { display:block; font-size: 12px; color:#a8b6da; margin-bottom: 6px; }
+    select, input, textarea, button {
+      width: 100%; box-sizing: border-box;
+      border-radius: 12px; border: 1px solid #2a3a66;
+      background: #0e1730; color: #e7eefc;
+      padding: 12px 12px; outline: none;
+    }
+    textarea { min-height: 140px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    button { cursor: pointer; border-color: #3654a7; background: #17306a; font-weight: 650; }
+    button.secondary { border-color: #2a3a66; background: #0e1730; }
+    button.danger { border-color: #8a2c3a; background: #4b1420; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+    .pill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; border:1px solid #2a3a66; background:#0e1730; font-size:12px; color:#a8b6da; }
+    .options { display: grid; gap: 10px; margin-top: 12px; }
+    .opt { text-align:left; background:#0e1730; border:1px solid #2a3a66; }
+    .opt.correct { border-color:#2e7d32; background:#0f2a16; }
+    .opt.wrong { border-color:#c62828; background:#2a0f12; }
+    .bar { height: 10px; background:#0e1730; border:1px solid #2a3a66; border-radius:999px; overflow:hidden; }
+    .bar > div { height:100%; width:0%; background:#3654a7; }
+    .spacer { height: 12px; }
+    .hr { height:1px; background:#223055; margin: 14px 0; }
+    .small { font-size: 12px; }
+    .right { text-align:right; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .hidden { display:none; }
+    .kbd { border:1px solid #2a3a66; background:#0e1730; border-radius:8px; padding:2px 6px; font-size:12px; color:#a8b6da; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- HOME -->
+    <div class="card" id="screenHome">
+      <h1>Quiz Escolar 🧠📚</h1>
+      <div class="muted">Historia · Geografía · Biología — aleatorio, repaso de falladas y estadísticas (se guardan en este dispositivo).</div>
+
+      <div class="spacer"></div>
+
+      <div class="grid2">
+        <div>
+          <label>Materia</label>
+          <select id="subject">
+            <option value="Todas">Todas</option>
+            <option value="Historia">Historia</option>
+            <option value="Geografía">Geografía</option>
+            <option value="Biología">Biología</option>
+            <option value="Capitales">Capitales</option>
+          </select>
+        </div>
+        <div>
+          <label>Número de preguntas</label>
+          <input id="count" type="number" min="1" max="200" value="10" />
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="grid2">
+        <button id="btnStart">Iniciar quiz</button>
+        <button class="secondary" id="btnReview">Repasar falladas</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="row">
+        <div class="pill" id="pillBank">Banco: <span class="mono" id="bankSize">0</span> preguntas</div>
+        <div class="pill">Aciertos totales: <span class="mono" id="statCorrect">0</span></div>
+        <div class="pill">Intentos totales: <span class="mono" id="statAttempts">0</span></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <h2>Importar tus datos (TSV)</h2>
+      <div class="muted small">
+        Pega un TSV (tabulado) desde Sheets/Excel con columnas:
+        <span class="mono">Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación(opcional)</span>
+      </div>
+
+      <div class="spacer"></div>
+      <textarea id="tsv" spellcheck="false"></textarea>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnImport">Importar / actualizar banco</button>
+        <button class="secondary" id="btnPasteSample">Pegar banco de ejemplo</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button class="secondary" id="btnExport">Exportar banco (TSV)</button>
+        <button class="danger" id="btnResetAll">Borrar banco y estadísticas</button>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="muted small">
+        Tip: durante el quiz usa <span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> para responder.
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div class="card hidden" id="screenQuiz">
+      <div class="row" style="align-items:flex-start;">
+        <div>
+          <div class="pill" id="pillMode">Modo: <span class="mono" id="modeLabel">Normal</span></div>
+        </div>
+        <div class="right">
+          <button class="secondary" id="btnQuit">Salir</button>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="bar"><div id="progress"></div></div>
+      <div class="spacer"></div>
+
+      <div class="row">
+        <div class="pill">Pregunta <span class="mono" id="qIndex">1</span>/<span class="mono" id="qTotal">10</span></div>
+        <div class="pill">Materia: <span class="mono" id="qSubject">—</span></div>
+        <div class="pill">Racha: <span class="mono" id="streak">0</span></div>
+      </div>
+
+      <div class="spacer"></div>
+      <h2 id="qText">—</h2>
+      <div class="options" id="options"></div>
+
+      <div class="spacer"></div>
+      <div class="muted" id="explain" style="min-height: 22px;"></div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnNext" disabled>Siguiente</button>
+        <button class="secondary" id="btnSkip">Saltar</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="card hidden" id="screenResults">
+      <h1>Resultado</h1>
+      <div class="row">
+        <div class="pill">Puntaje: <span class="mono" id="scoreLabel">0/0</span></div>
+        <div class="pill">Tiempo: <span class="mono" id="timeLabel">0s</span></div>
+        <div class="pill">Falladas: <span class="mono" id="wrongCount">0</span></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div id="wrongList"></div>
+
+      <div class="spacer"></div>
+      <div class="grid2">
+        <button id="btnRetryWrong">Reintentar falladas</button>
+        <button class="secondary" id="btnHome">Volver al inicio</button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/** ===== Storage keys ===== */
+const STORAGE = {
+  bank: "quiz_bank_v2",
+  stats: "quiz_stats_v2",
+  wrong: "quiz_wrong_v2"
+};
+
+/** ===== Utils ===== */
+function cyrb53(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1>>>0)).toString(36);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nowMs() { return Date.now(); }
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch { return fallback; }
+}
+function saveJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+/** ===== Default bank (historia, geografía, biología y capitales) ===== */
+function defaultBank() {
+  const items = [
+    // HISTORIA (23 preguntas)
+    q("Historia","¿Qué concepto corresponde a esta definición? «Etapa en la que se valoró la razón, la ciencia y el pensamiento crítico por encima de la autoridad de los reyes o la religión.»","Mary Wollstonecraft (Inglaterra)","Transformaciones generales del siglo XVIII","El siglo XVIII: “Siglo de las Luces” o de la Ilustración","Revolución Francesa (1789)","C","Definición de: El siglo XVIII: “Siglo de las Luces” o de la Ilustración."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «El siglo XVIII: “Siglo de las Luces” o de la Ilustración»?","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales.","Nació una nueva clase obrera y una clase rica industrial.","Se cuestionaron las monarquías absolutas y surgieron ideas de libertad, igualdad y derechos.","Bases de los derechos humanos y las luchas sociales modernas.","C","Se cuestionaron las monarquías absolutas y surgieron ideas de libertad, igualdad y derechos."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Cambiaron las ideas, la forma de gobernar y de producir. Las personas empezaron a creer que podían mejorar su vida usando la razón.»","Revolución Francesa (1789)","Problemas sociales","Olympe de Gouges (Francia)","Transformaciones generales del siglo XVIII","D","Definición de: Transformaciones generales del siglo XVIII."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Transformaciones generales del siglo XVIII»?","Surgieron las revoluciones políticas y la Revolución Industrial.","Nació una nueva clase obrera y una clase rica industrial.","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","A","Surgieron las revoluciones políticas y la Revolución Industrial."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Movimiento del pueblo francés contra el poder absoluto del rey y los privilegios de la nobleza.»","Crecimiento urbano","Revolución Francesa (1789)","El siglo XVIII: “Siglo de las Luces” o de la Ilustración","Límites de los derechos en la Revolución Francesa","B","Definición de: Revolución Francesa (1789)."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Revolución Francesa (1789)»?","Se utilizó el motor de vapor, se desarrollaron fábricas, trenes y barcos.","Surgieron las revoluciones políticas y la Revolución Industrial.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales.","D","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «No incluían a las mujeres, lo que generó protestas y nuevas ideas de igualdad.»","Mary Wollstonecraft (Inglaterra)","Revolución Industrial (finales del siglo XVIII)","Importancia de las revoluciones del siglo XVIII","Límites de los derechos en la Revolución Francesa","D","Definición de: Límites de los derechos en la Revolución Francesa."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Límites de los derechos en la Revolución Francesa»?","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida.","Nació una nueva clase obrera y una clase rica industrial.","Surgieron las revoluciones políticas y la Revolución Industrial.","Las mujeres exigieron su reconocimiento político y social.","D","Las mujeres exigieron su reconocimiento político y social."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Escribió la Declaración de los Derechos de la Mujer y de la Ciudadana (1791). Defendió la igualdad entre hombres y mujeres.»","Importancia de las revoluciones del siglo XVIII","Revolución Industrial (finales del siglo XVIII)","Límites de los derechos en la Revolución Francesa","Olympe de Gouges (Francia)","D","Definición de: Olympe de Gouges (Francia)."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Olympe de Gouges (Francia)»?","Las mujeres exigieron su reconocimiento político y social.","Surgieron las revoluciones políticas y la Revolución Industrial.","Considerada fundadora del pensamiento feminista moderno.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","D","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Autora de Vindicación de los derechos de la mujer (1792). Defendió el derecho a la educación y la igualdad racional e intelectual.»","Revolución Francesa (1789)","Mary Wollstonecraft (Inglaterra)","Uso de los recursos naturales","Revolución Industrial (finales del siglo XVIII)","B","Definición de: Mary Wollstonecraft (Inglaterra)."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Mary Wollstonecraft (Inglaterra)»?","Surgieron las revoluciones políticas y la Revolución Industrial.","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales.","Considerada fundadora del pensamiento feminista moderno.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","C","Considerada fundadora del pensamiento feminista moderno."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Cambio en la forma de producir: las máquinas y fábricas sustituyeron al trabajo manual.»","Crecimiento urbano","Límites de los derechos en la Revolución Francesa","Revolución Industrial (finales del siglo XVIII)","Olympe de Gouges (Francia)","C","Definición de: Revolución Industrial (finales del siglo XVIII)."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Revolución Industrial (finales del siglo XVIII)»?","Se cuestionaron las monarquías absolutas y surgieron ideas de libertad, igualdad y derechos.","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida.","Se utilizó el motor de vapor, se desarrollaron fábricas, trenes y barcos.","Considerada fundadora del pensamiento feminista moderno.","C","Se utilizó el motor de vapor, se desarrollaron fábricas, trenes y barcos."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Miles se mudaron del campo a la ciudad para trabajar en fábricas.»","Crecimiento urbano","Mary Wollstonecraft (Inglaterra)","Importancia de las revoluciones del siglo XVIII","Límites de los derechos en la Revolución Francesa","A","Definición de: Crecimiento urbano."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Crecimiento urbano»?","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida.","Bases de los derechos humanos y las luchas sociales modernas.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales.","A","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Se explotaron intensamente el carbón, el hierro y el algodón.»","Importancia de las revoluciones del siglo XVIII","Problemas sociales","Uso de los recursos naturales","Revolución Industrial (finales del siglo XVIII)","C","Definición de: Uso de los recursos naturales."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Uso de los recursos naturales»?","Nació una nueva clase obrera y una clase rica industrial.","Surgieron grandes ciudades, pero con hacinamiento y malas condiciones de vida.","Surgieron las revoluciones políticas y la Revolución Industrial.","Contaminación del aire y ríos; deterioro del medio ambiente.","D","Contaminación del aire y ríos; deterioro del medio ambiente."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «- Trabajo infantil (niños con largas jornadas).- Mujeres con sueldos bajos.- Jornadas extenuantes.- Desigualdad social.»","Problemas sociales","Revolución Industrial (finales del siglo XVIII)","Revolución Francesa (1789)","Transformaciones generales del siglo XVIII","A","Definición de: Problemas sociales."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Problemas sociales»?","Se cuestionaron las monarquías absolutas y surgieron ideas de libertad, igualdad y derechos.","Contaminación del aire y ríos; deterioro del medio ambiente.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","Nació una nueva clase obrera y una clase rica industrial.","D","Nació una nueva clase obrera y una clase rica industrial."),
+    q("Historia","¿Qué concepto corresponde a esta definición? «Cambiaron la forma de pensar, trabajar y vivir. Dieron origen a la idea de que todos tienen derechos.»","Transformaciones generales del siglo XVIII","Mary Wollstonecraft (Inglaterra)","Importancia de las revoluciones del siglo XVIII","Olympe de Gouges (Francia)","C","Definición de: Importancia de las revoluciones del siglo XVIII."),
+    q("Historia","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Importancia de las revoluciones del siglo XVIII»?","Se proclamó la Declaración de los Derechos del Hombre y del Ciudadano: todos nacen libres e iguales.","Se cuestionaron las monarquías absolutas y surgieron ideas de libertad, igualdad y derechos.","Fue una de las primeras voces feministas. Inspiró movimientos por la igualdad.","Bases de los derechos humanos y las luchas sociales modernas.","D","Bases de los derechos humanos y las luchas sociales modernas."),
+    q("Historia","Según el apoyo conceptual, la Revolución Industrial permitió…","la producción masiva de bienes y modificó trabajo y consumo.","el fin de toda contaminación.","que no existieran fábricas.","la desaparición de las ciudades.","A","Apoyo conceptual de Historia."),
+    // GEOGRAFÍA (47 preguntas)
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Variación del número de habitantes según nacimientos, muertes y migración. Puede ser rápido, lento o negativo.»","Implicaciones económicas","Distribución de la población","Crecimiento poblacional","Pirámides poblacionales","C","Definición de: Crecimiento poblacional."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Crecimiento poblacional»?","Escasez de vivienda, empleo y agua potable.","Ciudades grandes con problemas de aire, agua y residuos.","Refleja la calidad de vida y los servicios de salud.","Crecimiento rápido: falta de servicios. Crecimiento lento: pocos jóvenes y más adultos mayores.","D","Crecimiento rápido: falta de servicios. Crecimiento lento: pocos jóvenes y más adultos mayores."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Muchos nacimientos y servicios limitados.»","Crecimiento lento o negativo","Interpretación de pirámides","Factores que explican la distribución","Crecimiento rápido","D","Definición de: Crecimiento rápido."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Crecimiento rápido»?","Más población en zonas urbanas, litorales o de actividad económica.","Escasez de vivienda, empleo y agua potable.","Regiones como CDMX y Estado de México son densas y urbanizadas.","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral.","B","Escasez de vivienda, empleo y agua potable."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Pocos nacimientos y mayoría adulta mayor.»","Crecimiento lento o negativo","Factores que explican la distribución","Migración","Indicadores demográficos","A","Definición de: Crecimiento lento o negativo."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Crecimiento lento o negativo»?","Mide si la población crece o disminuye.","Si aumenta, mejora el bienestar.","Problemas económicos por escasez de trabajadores activos.","Muchos niños → más escuelas. Muchos adultos mayores → más hospitales y pensiones.","C","Problemas económicos por escasez de trabajadores activos."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «La población no se reparte de forma uniforme; depende del clima, relieve, empleo y servicios.»","Interpretación de pirámides","Composición de la población","Crecimiento lento o negativo","Distribución de la población","D","Definición de: Distribución de la población."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Distribución de la población»?","Muchos niños → más escuelas. Muchos adultos mayores → más hospitales y pensiones.","Crecimiento rápido: falta de servicios. Crecimiento lento: pocos jóvenes y más adultos mayores.","Escasez de vivienda, empleo y agua potable.","Más población en zonas urbanas, litorales o de actividad económica.","D","Más población en zonas urbanas, litorales o de actividad económica."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «- Clima templado.- Terreno plano.- Actividad económica.- Servicios públicos.»","Factores que explican la distribución","Tasa de mortalidad","Implicaciones económicas","Crecimiento rápido","A","Definición de: Factores que explican la distribución."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Factores que explican la distribución»?","Regiones como CDMX y Estado de México son densas y urbanizadas.","Base ancha → población joven. Base estrecha → crecimiento lento. Parte superior ancha → envejecimiento.","Ciudad de México: alta concentración por empleo y servicios.","Si aumenta, mejora el bienestar.","C","Ciudad de México: alta concentración por empleo y servicios."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Mayor población en centro y sur; zonas áridas del norte menos pobladas.»","Crecimiento rápido","Migración","Pirámides poblacionales","Ejemplo de México","D","Definición de: Ejemplo de México."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Ejemplo de México»?","Si aumenta, mejora el bienestar.","Regiones como CDMX y Estado de México son densas y urbanizadas.","Cambia la población de ciudades o países.","Base ancha → población joven. Base estrecha → crecimiento lento. Parte superior ancha → envejecimiento.","B","Regiones como CDMX y Estado de México son densas y urbanizadas."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Análisis por edad y sexo para comprender la estructura social.»","Distribución de la población","Pirámides poblacionales","Composición de la población","Crecimiento rápido","C","Definición de: Composición de la población."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Composición de la población»?","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral.","Base ancha → población joven. Base estrecha → crecimiento lento. Parte superior ancha → envejecimiento.","Permite identificar grupos que requieren servicios específicos.","México: esperanza de vida ~75 años; natalidad en descenso.","C","Permite identificar grupos que requieren servicios específicos."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Gráficos que muestran la composición por edad y sexo.»","Indicadores demográficos","Interpretación de pirámides","Pirámides poblacionales","Ejemplo de México","C","Definición de: Pirámides poblacionales."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Pirámides poblacionales»?","Más población en zonas urbanas, litorales o de actividad económica.","Escasez de vivienda, empleo y agua potable.","Refleja la calidad de vida y los servicios de salud.","Base ancha → población joven. Base estrecha → crecimiento lento. Parte superior ancha → envejecimiento.","D","Base ancha → población joven. Base estrecha → crecimiento lento. Parte superior ancha → envejecimiento."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Sirve para planificar educación, salud y economía según el grupo dominante.»","Migración","Ejemplo de México","Interpretación de pirámides","Pirámides poblacionales","C","Definición de: Interpretación de pirámides."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Interpretación de pirámides»?","Permite identificar grupos que requieren servicios específicos.","Regiones como CDMX y Estado de México son densas y urbanizadas.","Escasez de vivienda, empleo y agua potable.","Muchos niños → más escuelas. Muchos adultos mayores → más hospitales y pensiones.","D","Muchos niños → más escuelas. Muchos adultos mayores → más hospitales y pensiones."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Datos clave para analizar la población: natalidad, mortalidad, esperanza de vida, crecimiento natural y migración.»","Implicaciones sociales","Tasa de natalidad","Indicadores demográficos","Composición de la población","C","Definición de: Indicadores demográficos."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Indicadores demográficos»?","Crecimiento rápido: falta de servicios. Crecimiento lento: pocos jóvenes y más adultos mayores.","Indica si la población crece por nacimientos.","Permite identificar grupos que requieren servicios específicos.","México: esperanza de vida ~75 años; natalidad en descenso.","D","México: esperanza de vida ~75 años; natalidad en descenso."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Nacimientos por cada mil habitantes.»","Crecimiento rápido","Tasa de natalidad","Implicaciones económicas","Indicadores demográficos","B","Definición de: Tasa de natalidad."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Tasa de natalidad»?","Cambia la población de ciudades o países.","Problemas económicos por escasez de trabajadores activos.","Indica si la población crece por nacimientos.","Escasez de vivienda, empleo y agua potable.","C","Indica si la población crece por nacimientos."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Muertes por cada mil habitantes.»","Crecimiento rápido","Tasa de mortalidad","Tasa de crecimiento natural","Pirámides poblacionales","B","Definición de: Tasa de mortalidad."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Tasa de mortalidad»?","Indica si la población crece por nacimientos.","Refleja la calidad de vida y los servicios de salud.","Problemas económicos por escasez de trabajadores activos.","Cambia la población de ciudades o países.","B","Refleja la calidad de vida y los servicios de salud."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Promedio de años que vive una persona.»","Pirámides poblacionales","Tasa de natalidad","Esperanza de vida","Factores que explican la distribución","C","Definición de: Esperanza de vida."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Esperanza de vida»?","Indica si la población crece por nacimientos.","Escasez de vivienda o saturación de hospitales.","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral.","Si aumenta, mejora el bienestar.","D","Si aumenta, mejora el bienestar."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Diferencia entre nacimientos y muertes.»","Tasa de crecimiento natural","Interpretación de pirámides","Crecimiento lento o negativo","Distribución de la población","A","Definición de: Tasa de crecimiento natural."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Tasa de crecimiento natural»?","Refleja la calidad de vida y los servicios de salud.","Ciudad de México: alta concentración por empleo y servicios.","Escasez de vivienda o saturación de hospitales.","Mide si la población crece o disminuye.","D","Mide si la población crece o disminuye."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Llegada o salida de personas en un territorio.»","Indicadores demográficos","Migración","Pirámides poblacionales","Ejemplo de México","B","Definición de: Migración."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Migración»?","Más población en zonas urbanas, litorales o de actividad económica.","Cambia la población de ciudades o países.","Escasez de vivienda o saturación de hospitales.","México: esperanza de vida ~75 años; natalidad en descenso.","B","Cambia la población de ciudades o países."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Falta de servicios con crecimiento rápido; demandas de salud y pensiones con envejecimiento.»","Distribución de la población","Implicaciones sociales","Implicaciones ambientales","Factores que explican la distribución","B","Definición de: Implicaciones sociales."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Implicaciones sociales»?","Escasez de vivienda o saturación de hospitales.","Indica si la población crece por nacimientos.","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral.","Permite identificar grupos que requieren servicios específicos.","A","Escasez de vivienda o saturación de hospitales."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «Mayor presión sobre recursos naturales y generación de contaminación.»","Crecimiento rápido","Implicaciones ambientales","Interpretación de pirámides","Implicaciones sociales","B","Definición de: Implicaciones ambientales."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Implicaciones ambientales»?","Ciudades grandes con problemas de aire, agua y residuos.","Si aumenta, mejora el bienestar.","Indica si la población crece por nacimientos.","Crecimiento rápido: falta de servicios. Crecimiento lento: pocos jóvenes y más adultos mayores.","A","Ciudades grandes con problemas de aire, agua y residuos."),
+    q("Geografía","¿Qué concepto corresponde a esta definición? «La población activa impulsa la economía; crecimientos muy rápidos complican el desarrollo sostenible.»","Ejemplo de México","Implicaciones económicas","Migración","Interpretación de pirámides","B","Definición de: Implicaciones económicas."),
+    q("Geografía","Según el repaso, ¿cuál es un ejemplo o consecuencia de «Implicaciones económicas»?","Cambia la población de ciudades o países.","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral.","Problemas económicos por escasez de trabajadores activos.","Más población en zonas urbanas, litorales o de actividad económica.","B","Regiones con jóvenes: más producción; regiones envejecidas: menor fuerza laboral."),
+    q("Geografía","¿Qué tema describe mejor esta idea? «• Son actividades que transforman recursos naturales en bienes y servicios. • Combinan recursos naturales, trabajo humano, tecnología y capital. • Ejemplos: trigo → pan; petróleo → plástico; madera → muebles.»","4. Bloques económicos (2025)","5. Implicaciones socioeconómicas y ambientales","1. Concepto de procesos productivos","2. Sectores de la producción","C","Corresponde a: 1. Concepto de procesos productivos."),
+    q("Geografía","¿Cuál de las siguientes afirmaciones describe mejor «1. Concepto de procesos productivos»?","T-MEC: comercio de América del Norte. Unión Europea: mercado común europeo.(euro) MERCOSUR: integración productiva del Cono Sur. APEC: coop…","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Mo…","• Son actividades que transforman recursos naturales en bienes y servicios. • Combinan recursos naturales, trabajo humano, tecnología y cap…","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina s…","C","• Son actividades que transforman recursos naturales en bienes y servicios. • Combinan recursos naturales, trabajo humano, tecnología y capital. • Ejemplos: trigo → pan; petróleo → plástico; madera → muebles."),
+    q("Geografía","¿Qué tema describe mejor esta idea? «Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Modificación de los elementos del sector primario. Como Industria manufa…»","4. Bloques económicos (2025)","3. Distribución mundial de la producción","2. Sectores de la producción","1. Concepto de procesos productivos","C","Corresponde a: 2. Sectores de la producción."),
+    q("Geografía","¿Cuál de las siguientes afirmaciones describe mejor «2. Sectores de la producción»?","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Mo…","• Son actividades que transforman recursos naturales en bienes y servicios. • Combinan recursos naturales, trabajo humano, tecnología y cap…","Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, co…","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina s…","A","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Modificación de los elementos del sector primario. Como Industria manufacturera, automotriz, textil, química. Sector terciario: Servicios necesarios para el desarrollo o distribución de los otros sectores. Como: comercio, transporte, educación, salud, turismo, banca. • En México: norte industrial, centro con servicios e industria, sur con predominio agrícola y turístico."),
+    q("Geografía","¿Qué tema describe mejor esta idea? «• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina se especializan en el sector primario. • Existe desigualdad global en q…»","5. Implicaciones socioeconómicas y ambientales","1. Concepto de procesos productivos","3. Distribución mundial de la producción","4. Bloques económicos (2025)","C","Corresponde a: 3. Distribución mundial de la producción."),
+    q("Geografía","¿Cuál de las siguientes afirmaciones describe mejor «3. Distribución mundial de la producción»?","• Son actividades que transforman recursos naturales en bienes y servicios. • Combinan recursos naturales, trabajo humano, tecnología y cap…","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Mo…","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina s…","Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, co…","C","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina se especializan en el sector primario. • Existe desigualdad global en quién produce bienes avanzados y quién provee materias primas."),
+    q("Geografía","¿Qué tema describe mejor esta idea? «T-MEC: comercio de América del Norte. Unión Europea: mercado común europeo.(euro) MERCOSUR: integración productiva del Cono Sur. APEC: cooperación económica del Pacífico (21 países). RCEP: mayor bloque del mun…»","1. Concepto de procesos productivos","2. Sectores de la producción","4. Bloques económicos (2025)","3. Distribución mundial de la producción","C","Corresponde a: 4. Bloques económicos (2025)."),
+    q("Geografía","¿Cuál de las siguientes afirmaciones describe mejor «4. Bloques económicos (2025)»?","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina s…","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Mo…","Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, co…","T-MEC: comercio de América del Norte. Unión Europea: mercado común europeo.(euro) MERCOSUR: integración productiva del Cono Sur. APEC: coop…","D","T-MEC: comercio de América del Norte. Unión Europea: mercado común europeo.(euro) MERCOSUR: integración productiva del Cono Sur. APEC: cooperación económica del Pacífico (21 países). RCEP: mayor bloque del mundo; integra economías de Asia y Oceanía. • Los bloques influyen en inversión, comercio y localización de industrias."),
+    q("Geografía","¿Qué tema describe mejor esta idea? «Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, condiciones laborales precarias, contaminación, urbanización desordenada…»","3. Distribución mundial de la producción","4. Bloques económicos (2025)","2. Sectores de la producción","5. Implicaciones socioeconómicas y ambientales","D","Corresponde a: 5. Implicaciones socioeconómicas y ambientales."),
+    q("Geografía","¿Cuál de las siguientes afirmaciones describe mejor «5. Implicaciones socioeconómicas y ambientales»?","• Regiones desarrolladas (Asia-Pacífico, Norteamérica, Europa) concentran la manufactura y tecnología. • África y parte de América Latina s…","Sector primario: Aquello que se obtiene de la naturaleza. Como: agricultura, ganadería, pesca, minería, silvicultura. Sector secundario: Mo…","T-MEC: comercio de América del Norte. Unión Europea: mercado común europeo.(euro) MERCOSUR: integración productiva del Cono Sur. APEC: coop…","Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, co…","D","Aspectos positivos: empleo, ingresos, desarrollo tecnológico, infraestructura, valor agregado. Aspectos negativos: desigualdad regional, condiciones laborales precarias, contaminación, urbanización desordenada, desplazamiento de comunidades. • Invitan a buscar equilibrio entre crecimiento económico, justicia social y sostenibilidad."),
+    q("Geografía","Según el apoyo conceptual, con la industrialización…","las ciudades crecieron, aumentó la población y se transformaron los paisajes.","disminuyeron las migraciones a cero.","los paisajes no cambiaron.","se prohibió el comercio.","A","Apoyo conceptual de Geografía."),
+    // CAPITALES (84 preguntas)
+    q("Capitales","¿Cuál es la capital de Aguascalientes?","Villahermosa","Aguascalientes","Pachuca de Soto","Culiacán Rosales","B","La capital de Aguascalientes es Aguascalientes."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Aguascalientes?","Veracruz","Aguascalientes","Oaxaca","Jalisco","B","Aguascalientes es capital de Aguascalientes."),
+    q("Capitales","¿Cuál es la capital de Baja California?","Mexicali","Toluca de Lerdo","Aguascalientes","San Luis Potosí","A","La capital de Baja California es Mexicali."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Mexicali?","Baja California","Campeche","Quintana Roo","Zacatecas","A","Mexicali es capital de Baja California."),
+    q("Capitales","¿Cuál es la capital de Baja California Sur?","La Paz","Chetumal","Tuxtla Gutiérrez","Tlaxcala de Xicohténcatl","A","La capital de Baja California Sur es La Paz."),
+    q("Capitales","¿De qué estado/entidad federativa es capital La Paz?","Baja California Sur","Quintana Roo","Estado de México","Guerrero","A","La Paz es capital de Baja California Sur."),
+    q("Capitales","¿Cuál es la capital de Campeche?","San Francisco de Campeche","Monterrey","Chihuahua","Saltillo","A","La capital de Campeche es San Francisco de Campeche."),
+    q("Capitales","¿De qué estado/entidad federativa es capital San Francisco de Campeche?","Campeche","Veracruz","Sinaloa","Quintana Roo","A","San Francisco de Campeche es capital de Campeche."),
+    q("Capitales","¿Cuál es la capital de Chiapas?","Ciudad Victoria","Monterrey","Guadalajara","Tuxtla Gutiérrez","D","La capital de Chiapas es Tuxtla Gutiérrez."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Tuxtla Gutiérrez?","Chiapas","Tabasco","Coahuila","Estado de México","A","Tuxtla Gutiérrez es capital de Chiapas."),
+    q("Capitales","¿Cuál es la capital de Chihuahua?","Morelia","Chihuahua","Chetumal","Saltillo","B","La capital de Chihuahua es Chihuahua."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Chihuahua?","Quintana Roo","Guanajuato","Chihuahua","Baja California Sur","C","Chihuahua es capital de Chihuahua."),
+    q("Capitales","¿Cuál es la capital de Ciudad de México?","Colima","Guanajuato","Ciudad de México","Chetumal","C","La capital de Ciudad de México es Ciudad de México."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Ciudad de México?","Morelos","Colima","Baja California","Ciudad de México","D","Ciudad de México es capital de Ciudad de México."),
+    q("Capitales","¿Cuál es la capital de Coahuila?","Saltillo","Oaxaca de Juárez","Santiago de Querétaro","Xalapa-Enríquez","A","La capital de Coahuila es Saltillo."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Saltillo?","Colima","Coahuila","Jalisco","Morelos","B","Saltillo es capital de Coahuila."),
+    q("Capitales","¿Cuál es la capital de Colima?","Hermosillo","Tlaxcala de Xicohténcatl","Xalapa-Enríquez","Colima","D","La capital de Colima es Colima."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Colima?","Chihuahua","Tabasco","Colima","Zacatecas","C","Colima es capital de Colima."),
+    q("Capitales","¿Cuál es la capital de Durango?","Tlaxcala de Xicohténcatl","Mérida","Victoria de Durango","San Francisco de Campeche","C","La capital de Durango es Victoria de Durango."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Victoria de Durango?","Durango","Nuevo León","Quintana Roo","Nayarit","A","Victoria de Durango es capital de Durango."),
+    q("Capitales","¿Cuál es la capital de Guanajuato?","Mérida","Ciudad Victoria","Guanajuato","Monterrey","C","La capital de Guanajuato es Guanajuato."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Guanajuato?","Guanajuato","Sonora","Colima","Michoacán","A","Guanajuato es capital de Guanajuato."),
+    q("Capitales","¿Cuál es la capital de Guerrero?","Chilpancingo de los Bravo","Tepic","Cuernavaca","Hermosillo","A","La capital de Guerrero es Chilpancingo de los Bravo."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Chilpancingo de los Bravo?","Guerrero","San Luis Potosí","Durango","Baja California Sur","A","Chilpancingo de los Bravo es capital de Guerrero."),
+    q("Capitales","¿Cuál es la capital de Hidalgo?","Guanajuato","Xalapa-Enríquez","Monterrey","Pachuca de Soto","D","La capital de Hidalgo es Pachuca de Soto."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Pachuca de Soto?","San Luis Potosí","Hidalgo","Jalisco","Coahuila","B","Pachuca de Soto es capital de Hidalgo."),
+    q("Capitales","¿Cuál es la capital de Jalisco?","Toluca de Lerdo","Guadalajara","La Paz","Guanajuato","B","La capital de Jalisco es Guadalajara."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Guadalajara?","Ciudad de México","Jalisco","Tamaulipas","Estado de México","B","Guadalajara es capital de Jalisco."),
+    q("Capitales","¿Cuál es la capital de Estado de México?","Xalapa-Enríquez","Toluca de Lerdo","Tlaxcala de Xicohténcatl","Hermosillo","B","La capital de Estado de México es Toluca de Lerdo."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Toluca de Lerdo?","Guerrero","Estado de México","Zacatecas","Durango","B","Toluca de Lerdo es capital de Estado de México."),
+    q("Capitales","¿Cuál es la capital de Michoacán?","Saltillo","Morelia","Cuernavaca","Colima","B","La capital de Michoacán es Morelia."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Morelia?","Hidalgo","Michoacán","Guanajuato","Quintana Roo","B","Morelia es capital de Michoacán."),
+    q("Capitales","¿Cuál es la capital de Morelos?","Mérida","Cuernavaca","Toluca de Lerdo","Ciudad Victoria","B","La capital de Morelos es Cuernavaca."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Cuernavaca?","Hidalgo","Yucatán","Oaxaca","Morelos","D","Cuernavaca es capital de Morelos."),
+    q("Capitales","¿Cuál es la capital de Nayarit?","Tlaxcala de Xicohténcatl","Toluca de Lerdo","Tepic","Tuxtla Gutiérrez","C","La capital de Nayarit es Tepic."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Tepic?","Nayarit","Guanajuato","Hidalgo","Ciudad de México","A","Tepic es capital de Nayarit."),
+    q("Capitales","¿Cuál es la capital de Nuevo León?","Monterrey","Pachuca de Soto","Hermosillo","Xalapa-Enríquez","A","La capital de Nuevo León es Monterrey."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Monterrey?","Tamaulipas","Michoacán","Baja California Sur","Nuevo León","D","Monterrey es capital de Nuevo León."),
+    q("Capitales","¿Cuál es la capital de Oaxaca?","Zacatecas","Saltillo","Chilpancingo de los Bravo","Oaxaca de Juárez","D","La capital de Oaxaca es Oaxaca de Juárez."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Oaxaca de Juárez?","Zacatecas","Aguascalientes","Oaxaca","Sonora","C","Oaxaca de Juárez es capital de Oaxaca."),
+    q("Capitales","¿Cuál es la capital de Puebla?","Tuxtla Gutiérrez","Puebla de Zaragoza","Saltillo","Oaxaca de Juárez","B","La capital de Puebla es Puebla de Zaragoza."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Puebla de Zaragoza?","Puebla","Nuevo León","Zacatecas","Ciudad de México","A","Puebla de Zaragoza es capital de Puebla."),
+    q("Capitales","¿Cuál es la capital de Querétaro?","Chilpancingo de los Bravo","Hermosillo","Chihuahua","Santiago de Querétaro","D","La capital de Querétaro es Santiago de Querétaro."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Santiago de Querétaro?","Querétaro","Campeche","Aguascalientes","Nuevo León","A","Santiago de Querétaro es capital de Querétaro."),
+    q("Capitales","¿Cuál es la capital de Quintana Roo?","San Luis Potosí","Zacatecas","Chetumal","Pachuca de Soto","C","La capital de Quintana Roo es Chetumal."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Chetumal?","Campeche","Quintana Roo","Sonora","San Luis Potosí","B","Chetumal es capital de Quintana Roo."),
+    q("Capitales","¿Cuál es la capital de San Luis Potosí?","San Luis Potosí","Villahermosa","Mexicali","Monterrey","A","La capital de San Luis Potosí es San Luis Potosí."),
+    q("Capitales","¿De qué estado/entidad federativa es capital San Luis Potosí?","Baja California Sur","Querétaro","San Luis Potosí","Guerrero","C","San Luis Potosí es capital de San Luis Potosí."),
+    q("Capitales","¿Cuál es la capital de Sinaloa?","Culiacán Rosales","Morelia","Ciudad Victoria","San Francisco de Campeche","A","La capital de Sinaloa es Culiacán Rosales."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Culiacán Rosales?","Sinaloa","Jalisco","Chiapas","Quintana Roo","A","Culiacán Rosales es capital de Sinaloa."),
+    q("Capitales","¿Cuál es la capital de Sonora?","Hermosillo","Villahermosa","Oaxaca de Juárez","Mérida","A","La capital de Sonora es Hermosillo."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Hermosillo?","Nuevo León","Sonora","Tamaulipas","San Luis Potosí","B","Hermosillo es capital de Sonora."),
+    q("Capitales","¿Cuál es la capital de Tabasco?","La Paz","Villahermosa","Ciudad Victoria","Mérida","B","La capital de Tabasco es Villahermosa."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Villahermosa?","Estado de México","Tabasco","Sinaloa","Nuevo León","B","Villahermosa es capital de Tabasco."),
+    q("Capitales","¿Cuál es la capital de Tamaulipas?","Tlaxcala de Xicohténcatl","Ciudad Victoria","Guanajuato","Morelia","B","La capital de Tamaulipas es Ciudad Victoria."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Ciudad Victoria?","Tamaulipas","Colima","Guerrero","Sonora","A","Ciudad Victoria es capital de Tamaulipas."),
+    q("Capitales","¿Cuál es la capital de Tlaxcala?","Cuernavaca","Aguascalientes","Tlaxcala de Xicohténcatl","Tepic","C","La capital de Tlaxcala es Tlaxcala de Xicohténcatl."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Tlaxcala de Xicohténcatl?","Tlaxcala","Michoacán","Jalisco","San Luis Potosí","A","Tlaxcala de Xicohténcatl es capital de Tlaxcala."),
+    q("Capitales","¿Cuál es la capital de Veracruz?","Puebla de Zaragoza","Chetumal","Xalapa-Enríquez","Morelia","C","La capital de Veracruz es Xalapa-Enríquez."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Xalapa-Enríquez?","Veracruz","Coahuila","Hidalgo","Durango","A","Xalapa-Enríquez es capital de Veracruz."),
+    q("Capitales","¿Cuál es la capital de Yucatán?","Mérida","Cuernavaca","Morelia","Tepic","A","La capital de Yucatán es Mérida."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Mérida?","Yucatán","Estado de México","Guerrero","Quintana Roo","A","Mérida es capital de Yucatán."),
+    q("Capitales","¿Cuál es la capital de Zacatecas?","San Francisco de Campeche","Zacatecas","San Luis Potosí","Saltillo","B","La capital de Zacatecas es Zacatecas."),
+    q("Capitales","¿De qué estado/entidad federativa es capital Zacatecas?","Yucatán","Nayarit","Zacatecas","San Luis Potosí","C","Zacatecas es capital de Zacatecas."),
+    q("Capitales","¿Cuál es la capital de Reino Unido?","Madrid","Roma","Londres","Moscú","C","La capital de Reino Unido es Londres."),
+    q("Capitales","¿De qué país es capital Londres?","Alemania","Reino Unido","Bélgica","Rusia","B","Londres es capital de Reino Unido."),
+    q("Capitales","¿Cuál es la capital de Francia?","Bruselas","Ámsterdam","Madrid","París","D","La capital de Francia es París."),
+    q("Capitales","¿De qué país es capital París?","Reino Unido","Bélgica","España","Francia","D","París es capital de Francia."),
+    q("Capitales","¿Cuál es la capital de Estados Unidos de América?","Madrid","Berlín","Washington D.C.","Ámsterdam","C","La capital de Estados Unidos de América es Washington D.C.."),
+    q("Capitales","¿De qué país es capital Washington D.C.?","Reino Unido","España","Rusia","Estados Unidos de América","D","Washington D.C. es capital de Estados Unidos de América."),
+    q("Capitales","¿Cuál es la capital de Bélgica?","Bruselas","Ámsterdam","Londres","París","A","La capital de Bélgica es Bruselas."),
+    q("Capitales","¿De qué país es capital Bruselas?","Francia","Bélgica","Alemania","Reino Unido","B","Bruselas es capital de Bélgica."),
+    q("Capitales","¿Cuál es la capital de Alemania?","Berlín","Tokio","Ámsterdam","Bruselas","A","La capital de Alemania es Berlín."),
+    q("Capitales","¿De qué país es capital Berlín?","Rusia","Reino Unido","Países Bajos","Alemania","D","Berlín es capital de Alemania."),
+    q("Capitales","¿Cuál es la capital de Rusia?","Madrid","París","Moscú","Berlín","C","La capital de Rusia es Moscú."),
+    q("Capitales","¿De qué país es capital Moscú?","Rusia","Estados Unidos de América","Reino Unido","Bélgica","A","Moscú es capital de Rusia."),
+    q("Capitales","¿Cuál es la capital de Italia?","Roma","Berlín","París","Londres","A","La capital de Italia es Roma."),
+    q("Capitales","¿De qué país es capital Roma?","Francia","Italia","Rusia","España","B","Roma es capital de Italia."),
+    q("Capitales","¿Cuál es la capital de Japón?","Berlín","Tokio","París","Roma","B","La capital de Japón es Tokio."),
+    q("Capitales","¿De qué país es capital Tokio?","Estados Unidos de América","Alemania","Reino Unido","Japón","D","Tokio es capital de Japón."),
+    q("Capitales","¿Cuál es la capital de España?","Madrid","Berlín","Tokio","Londres","A","La capital de España es Madrid."),
+    q("Capitales","¿De qué país es capital Madrid?","Alemania","España","Italia","Japón","B","Madrid es capital de España."),
+    q("Capitales","¿Cuál es la capital de Países Bajos?","Ámsterdam","Londres","Moscú","Roma","A","La capital de Países Bajos es Ámsterdam."),
+    q("Capitales","¿De qué país es capital Ámsterdam?","Japón","Reino Unido","Francia","Países Bajos","D","Ámsterdam es capital de Países Bajos."),
+    // BIOLOGÍA (25 preguntas)
+    q("Biología","¿Qué es la biotecnología según el material?","Aplicación de tecnología que usa sistemas biológicos u organismos vivos (o derivados) para crear o modificar procesos o productos para usos específicos.","Uso de máquinas para fabricar robots sin usar seres vivos.","Estudio de planetas y estrellas.","Técnica para medir terremotos.","A","Definición del documento de biotecnología."),
+    q("Biología","En 1953, ¿quiénes publicaron en Nature un modelo de doble hélice para la estructura del ADN?","Watson y Crick","Darwin y Wallace","Mendel y Pasteur","Newton y Einstein","A","El material menciona a Watson y Crick (1953)."),
+    q("Biología","¿Qué imagen clave obtuvo Rosalind Franklin en 1951 que mostró la estructura helicoidal del ADN?","Fotografía 51","La primera radiografía de un corazón","La foto del microscopio electrónico del VIH","La imagen del telescopio Hubble","A","El documento menciona 'Fotografía 51'."),
+    q("Biología","¿Qué significa ADN?","Ácido desoxirribonucleico","Ácido ribonucleico","Ácido desoxicarbonílico","Aminoácido de nucleótidos","A","ADN es ácido desoxirribonucleico."),
+    q("Biología","¿Cuál es una característica de la estructura del ADN mencionada en el material?","Tiene una parte central con un azúcar y un fosfato, a la que se enlazan bases.","Está formado solo por proteínas.","No contiene información genética.","Solo existe en plantas.","A","Describe azúcar-fosfato y bases."),
+    q("Biología","¿Cuáles son las 4 bases del ADN mencionadas?","A, C, T, G","A, U, C, G","A, T, P, S","C, U, T, I","A","El material lista A, C, T, G."),
+    q("Biología","Según el material, el orden de las bases en el ADN…","codifica la información genética.","no tiene importancia.","solo sirve para dar color.","determina la masa del organismo.","A","El orden de A,C,T,G codifica información genética."),
+    q("Biología","El ADN se organiza en cromosomas (estructura) y también en…","genes (función)","tejidos (función)","órganos (función)","ecosistemas (función)","A","Cromosomas y genes."),
+    q("Biología","¿Qué técnica de diagnóstico codesarrolló Rosalyn Yalow según el material?","Radioinmunoensayo","Electroforesis","PCR","Microscopía de fluorescencia","A","El documento menciona el radioinmunoensayo."),
+    q("Biología","Françoise Barré-Sinoussi recibió el Nobel de Fisiología o Medicina en 2008 por…","contribuir a la identificación del VIH como causa del SIDA.","descubrir la penicilina.","inventar la vacuna del sarampión.","crear el primer microscopio.","A","El material menciona VIH y SIDA."),
+    q("Biología","Mary-Claire King es conocida por identificar el gen…","BRCA1","BRCA2","INS","HBB","A","El material menciona BRCA1."),
+    q("Biología","Según el material, ¿para qué sirve la biotecnología?","Usar maquinaria biológica de otros seres vivos para beneficiar al ser humano.","Eliminar toda forma de vida microbiana del planeta.","Cambiar el clima de forma inmediata.","Convertir metales en oro.","A","Usa células vivas para productos específicos."),
+    q("Biología","La ecología de poblaciones estudia…","cómo grupos de organismos de la misma especie interactúan entre sí y con su entorno.","cómo se forman las rocas ígneas.","solo la anatomía de un individuo aislado.","la historia de un país.","A","Definición del ppt de Ecología Poblacional."),
+    q("Biología","¿Qué es una población (en ecología)?","Un grupo de individuos de la misma especie que viven en un área específica.","Cualquier conjunto de especies diferentes en un bosque.","Un solo organismo.","Una comunidad humana solamente.","A","Del ppt: población e individuo."),
+    q("Biología","La densidad poblacional mide…","cuántos individuos hay en un área determinada.","cuántas especies hay en todo un continente.","la edad promedio de la población.","la cantidad de agua de un lago.","A","Del ppt: densidad poblacional."),
+    q("Biología","¿Qué factor se refiere al número de nacimientos en una población?","Natalidad","Mortalidad","Emigración","Morbilidad","A","Natalidad = nacimientos."),
+    q("Biología","¿Qué describe la morbilidad?","La presencia de enfermedades en la población.","El número de nacimientos.","El movimiento hacia otra región.","El tamaño del hábitat.","A","Morbilidad = enfermedades."),
+    q("Biología","La migración y la emigración se diferencian porque…","migración es entrar a una población y emigración es salir.","migración es morir y emigración es nacer.","son exactamente lo mismo.","migración solo ocurre en plantas.","A","Del ppt."),
+    q("Biología","¿Cuál de estos tres factores influye directamente en cómo cambia y se mantiene una población?","Natalidad, morbilidad y mortalidad","Fotosíntesis, erosión y evaporación","Rotación, traslación y precesión","Densidad, volumen y masa","A","Del ppt: estos factores juntos influyen en la población."),
+    q("Biología","¿Cuál de las siguientes NO es una de las 7R de la sostenibilidad mencionadas en la actividad?","Rechazar","Reducir","Reutilizar","Reforestar","D","Las 7R: Rediseñar, Reducir, Reutilizar, Reparar, Recuperar, Reciclar, Rechazar."),
+    q("Biología","Las 7R de la sostenibilidad incluyen…","Rediseñar, Reducir, Reutilizar, Reparar, Recuperar, Reciclar y Rechazar","Reusar, Reír, Recordar y Repetir","Reducir, Rezar, Rodar y Respirar","Recorrer, Repartir, Reemplazar y Recitar","A","Lista de 7R del documento."),
+    q("Biología","En la actividad, ¿qué ciclos naturales se mencionan como afectados por desechos y explotación de recursos?","Agua, carbono y nitrógeno","Solo el del oxígeno","Solo el del azufre","Agua y sal únicamente","A","Se mencionan agua, carbono y nitrógeno."),
+    q("Biología","En una historia sobre un átomo (carbono o nitrógeno), ¿cuál proceso se sugiere mencionar como parte de su viaje?","Fotosíntesis","Teletransportación","Ebullición del hierro","Deriva continental","A","La guía menciona fotosíntesis, respiración, descomposición, etc."),
+    q("Biología","¿Cuál R se relaciona más con volver a usar un objeto sin tirarlo?","Reutilizar","Rechazar","Rediseñar","Recuperar","A","Reutilizar = usar de nuevo."),
+    q("Biología","¿Cuál R se relaciona más con arreglar un objeto para que dure más?","Reparar","Reciclar","Rechazar","Reducir","A","Reparar = arreglar para extender vida útil."),
+  ];
+  return items;
+}
+
+function q(subject, question, A,B,C,D, correctLetter, explanation="") {
+  const correctIndex = ({A:0,B:1,C:2,D:3})[String(correctLetter||"A").toUpperCase()] ?? 0;
+  const id = cyrb53(subject + "||" + question + "||" + [A,B,C,D].join("||"));
+  return { id, subject, question, choices: [A,B,C,D], correctIndex, explanation };
+}
+
+/** ===== App state ===== */
+let bank = [];
+let stats = {};
+let wrongSet = {};
+let session = null;
+
+/** ===== DOM ===== */
+const $ = (id) => document.getElementById(id);
+
+const screenHome = $("screenHome");
+const screenQuiz = $("screenQuiz");
+const screenResults = $("screenResults");
+
+const subjectSel = $("subject");
+const countInp = $("count");
+
+const bankSizeEl = $("bankSize");
+const statCorrectEl = $("statCorrect");
+const statAttemptsEl = $("statAttempts");
+
+const tsvArea = $("tsv");
+
+const btnStart = $("btnStart");
+const btnReview = $("btnReview");
+const btnImport = $("btnImport");
+const btnPasteSample = $("btnPasteSample");
+const btnExport = $("btnExport");
+const btnResetAll = $("btnResetAll");
+
+const modeLabel = $("modeLabel");
+
+const btnQuit = $("btnQuit");
+const progressEl = $("progress");
+const qIndexEl = $("qIndex");
+const qTotalEl = $("qTotal");
+const qSubjectEl = $("qSubject");
+const streakEl = $("streak");
+const qTextEl = $("qText");
+const optionsEl = $("options");
+const explainEl = $("explain");
+const btnNext = $("btnNext");
+const btnSkip = $("btnSkip");
+
+const scoreLabel = $("scoreLabel");
+const timeLabel = $("timeLabel");
+const wrongCountEl = $("wrongCount");
+const wrongList = $("wrongList");
+const btnRetryWrong = $("btnRetryWrong");
+const btnHome = $("btnHome");
+
+/** ===== Load / init ===== */
+function init() {
+  bank = loadJSON(STORAGE.bank, null);
+  if (!Array.isArray(bank) || bank.length === 0) {
+    bank = defaultBank();
+    saveJSON(STORAGE.bank, bank);
+  }
+  stats = loadJSON(STORAGE.stats, {});
+  wrongSet = loadJSON(STORAGE.wrong, {});
+  refreshHomeUI();
+  wireEvents();
+}
+
+function refreshHomeUI() {
+  bankSizeEl.textContent = bank.length;
+  let attempts = 0, correct = 0;
+  for (const id in stats) {
+    attempts += (stats[id]?.attempts || 0);
+    correct += (stats[id]?.correct || 0);
+  }
+  statAttemptsEl.textContent = attempts;
+  statCorrectEl.textContent = correct;
+  const wrongCountLocal = Object.keys(wrongSet).length;
+  btnReview.disabled = wrongCountLocal === 0;
+  countInp.max = String(Math.max(1, bank.length));
+  countInp.value = String(clamp(parseInt(countInp.value||"10",10), 1, Math.max(1, bank.length)));
+}
+
+/** ===== Screen helpers ===== */
+function show(screen) {
+  [screenHome, screenQuiz, screenResults].forEach(s => s.classList.add("hidden"));
+  screen.classList.remove("hidden");
+}
+
+/** ===== Quiz flow ===== */
+function startQuiz({mode}) {
+  const subject = subjectSel.value;
+  const n = clamp(parseInt(countInp.value||"10",10), 1, bank.length);
+  let pool = bank.slice();
+  if (subject !== "Todas") pool = pool.filter(x => x.subject === subject);
+  if (mode === "reviewWrong") {
+    const wrongIds = new Set(Object.keys(wrongSet));
+    pool = pool.filter(x => wrongIds.has(x.id));
+  }
+  if (pool.length === 0) {
+    alert("No hay preguntas para ese filtro. Importa más preguntas o cambia la materia.");
+    return;
+  }
+  shuffle(pool);
+  const pick = pool.slice(0, Math.min(n, pool.length));
+  session = {
+    mode,
+    questions: pick,
+    index: 0,
+    correct: 0,
+    wrong: [],
+    streak: 0,
+    startedAt: nowMs(),
+    answered: false
+  };
+  modeLabel.textContent = (mode === "reviewWrong") ? "Repaso falladas" : "Normal";
+  show(screenQuiz);
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const total = session.questions.length;
+  const idx = session.index;
+  const item = session.questions[idx];
+  session.answered = false;
+  btnNext.disabled = true;
+  explainEl.textContent = "";
+  qIndexEl.textContent = String(idx + 1);
+  qTotalEl.textContent = String(total);
+  qSubjectEl.textContent = item.subject;
+  streakEl.textContent = String(session.streak);
+  qTextEl.textContent = item.question;
+  const pct = Math.round(((idx) / total) * 100);
+  progressEl.style.width = pct + "%";
+  optionsEl.innerHTML = "";
+  item.choices.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.textContent = `${["A","B","C","D"][i]}) ${text}`;
+    b.onclick = () => choose(i);
+    optionsEl.appendChild(b);
+  });
+}
+
+function choose(choiceIndex) {
+  if (session.answered) return;
+  session.answered = true;
+  const item = session.questions[session.index];
+  const correct = item.correctIndex;
+  const s = stats[item.id] || { attempts: 0, correct: 0 };
+  s.attempts += 1;
+  const buttons = Array.from(optionsEl.querySelectorAll("button"));
+  buttons.forEach((b, i) => {
+    b.disabled = true;
+    if (i === correct) b.classList.add("correct");
+  });
+  if (choiceIndex === correct) {
+    s.correct += 1;
+    session.correct += 1;
+    session.streak += 1;
+    if (wrongSet[item.id]) {
+      delete wrongSet[item.id];
+    }
+    buttons[choiceIndex].classList.add("correct");
+    explainEl.textContent = item.explanation ? `✅ ${item.explanation}` : "✅ ¡Bien!";
+  } else {
+    session.streak = 0;
+    session.wrong.push(item);
+    wrongSet[item.id] = true;
+    buttons[choiceIndex].classList.add("wrong");
+    const correctLetter = ["A","B","C","D"][correct];
+    const extra = item.explanation ? ` ${item.explanation}` : "";
+    explainEl.textContent = `❌ Era ${correctLetter}).${extra}`;
+  }
+  stats[item.id] = s;
+  saveJSON(STORAGE.stats, stats);
+  saveJSON(STORAGE.wrong, wrongSet);
+  btnNext.disabled = false;
+  refreshHomeUI();
+}
+
+function next() {
+  if (!session) return;
+  if (session.index < session.questions.length - 1) {
+    session.index += 1;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function skip() {
+  if (!session) return;
+  if (session.index < session.questions.length - 1) {
+    session.index += 1;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+}
+
+function finishQuiz() {
+  const total = session.questions.length;
+  const elapsedSec = Math.round((nowMs() - session.startedAt) / 1000);
+  scoreLabel.textContent = `${session.correct}/${total}`;
+  timeLabel.textContent = `${elapsedSec}s`;
+  wrongCountEl.textContent = String(session.wrong.length);
+  wrongList.innerHTML = "";
+  if (session.wrong.length === 0) {
+    wrongList.innerHTML = `<div class="muted">Perfecto. Cero fallas. Tu hijo ya se ganó una paleta imaginaria. 🍭</div>`;
+  } else {
+    const div = document.createElement("div");
+    div.innerHTML = `<div class="muted small">Falladas (para reintentar):</div>`;
+    session.wrong.forEach((it, i) => {
+      const p = document.createElement("div");
+      p.style.marginTop = "10px";
+      p.innerHTML = `<div><b>${i+1}.</b> ${it.question}</div>
+                     <div class="muted small">Correcta: <span class="mono">${["A","B","C","D"][it.correctIndex]}</span> · ${it.explanation || ""}</div>`;
+      div.appendChild(p);
+    });
+    wrongList.appendChild(div);
+  }
+  btnRetryWrong.disabled = session.wrong.length === 0;
+  show(screenResults);
+}
+
+/** ===== TSV import/export ===== */
+function parseTSV(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const out = [];
+  for (const line of lines) {
+    if (line.toLowerCase().startsWith("materia\tpregunta\t")) continue;
+    const cols = line.split("\t");
+    if (cols.length < 7) continue;
+    const subject = cols[0].trim();
+    const question = cols[1].trim();
+    const A = (cols[2] ?? "").trim();
+    const B = (cols[3] ?? "").trim();
+    const C = (cols[4] ?? "").trim();
+    const D = (cols[5] ?? "").trim();
+    const corr = (cols[6] ?? "A").trim().toUpperCase();
+    const explanation = (cols[7] ?? "").trim();
+    if (!subject || !question || !A || !B || !C || !D) continue;
+    out.push(q(subject, question, A,B,C,D, corr, explanation));
+  }
+  return out;
+}
+
+function importTSV() {
+  const text = tsvArea.value || "";
+  const items = parseTSV(text);
+  if (items.length === 0) {
+    alert("No detecté preguntas válidas. Revisa que sea TSV con tabs y 4 opciones A-D.");
+    return;
+  }
+  const map = new Map(bank.map(it => [it.id, it]));
+  let added = 0, updated = 0;
+  for (const it of items) {
+    if (map.has(it.id)) { updated++; }
+    else { added++; }
+    map.set(it.id, it);
+  }
+  bank = Array.from(map.values());
+  saveJSON(STORAGE.bank, bank);
+  refreshHomeUI();
+  alert(`Listo: ${added} agregadas, ${updated} actualizadas. Total banco: ${bank.length}.`);
+}
+
+function exportTSV() {
+  const header = "Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación";
+  const rows = bank.map(it => {
+    const corr = ["A","B","C","D"][it.correctIndex] || "A";
+    return [it.subject, it.question, it.choices[0], it.choices[1], it.choices[2], it.choices[3], corr, it.explanation || ""].join("\t");
+  });
+  const text = [header, ...rows].join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    alert("TSV copiado al portapapeles ✅");
+  }).catch(() => {
+    tsvArea.value = text;
+    alert("No pude copiar automático. Te dejé el TSV en la caja para que lo copies manual.");
+  });
+}
+
+function resetAll() {
+  if (!confirm("¿Seguro? Esto borra banco y estadísticas en ESTE dispositivo.")) return;
+  localStorage.removeItem(STORAGE.bank);
+  localStorage.removeItem(STORAGE.stats);
+  localStorage.removeItem(STORAGE.wrong);
+  bank = defaultBank();
+  stats = {};
+  wrongSet = {};
+  saveJSON(STORAGE.bank, bank);
+  refreshHomeUI();
+  alert("Listo. Se reinició todo.");
+}
+
+/** ===== Events ===== */
+function wireEvents() {
+  btnStart.onclick = () => startQuiz({mode:"normal"});
+  btnReview.onclick = () => startQuiz({mode:"reviewWrong"});
+  btnImport.onclick = importTSV;
+  btnExport.onclick = exportTSV;
+  btnResetAll.onclick = resetAll;
+  btnPasteSample.onclick = () => {
+    tsvArea.value = sampleTSV();
+    tsvArea.focus();
+  };
+  btnQuit.onclick = () => { session = null; show(screenHome); refreshHomeUI(); };
+  btnNext.onclick = next;
+  btnSkip.onclick = skip;
+  btnHome.onclick = () => { session = null; show(screenHome); refreshHomeUI(); };
+  btnRetryWrong.onclick = () => {
+    show(screenHome);
+    subjectSel.value = "Todas";
+    countInp.value = String(Math.max(1, (session?.wrong?.length || 1)));
+    startQuiz({mode:"reviewWrong"});
+  };
+  document.addEventListener("keydown", (e) => {
+    if (screenQuiz.classList.contains("hidden")) return;
+    const k = e.key;
+    if (k === "1") choose(0);
+    if (k === "2") choose(1);
+    if (k === "3") choose(2);
+    if (k === "4") choose(3);
+    if (k === "Enter" && !btnNext.disabled) next();
+  });
+}
+
+/** ===== Sample TSV (ejemplo) ===== */
+function sampleTSV() {
+  return [
+    "Materia\tPregunta\tA\tB\tC\tD\tCorrecta(A/B/C/D)\tExplicación",
+    "Historia\t¿En qué año inició la Revolución Mexicana?\t1910\t1810\t1821\t1857\tA\t", 
+    "Geografía\t¿Capital de Francia?\tParís\tLondres\tMadrid\tBerlín\tA\t", 
+    "Biología\t¿Qué orgánulo es la 'central energética' de la célula?\tMitocondria\tRetículo endoplásmico\tRibosoma\tLisosoma\tA\t"
+  ].join("\n");
+}
+
+init();
+</script>
+
+</body>
+</html>
